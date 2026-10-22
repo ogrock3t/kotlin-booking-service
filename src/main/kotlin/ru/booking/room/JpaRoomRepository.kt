@@ -17,10 +17,8 @@ class JpaRoomRepository(private val repository: SpringDataRoomRepository) : Room
 
     override fun update(id: Long, input: RoomInput): Room? {
         val entity = repository.findLockedById(id) ?: return null
-        entity.name = input.name
-        entity.capacity = input.capacity
-        entity.description = input.description
-        return repository.saveAndFlush(entity).toRoom()
+        val updated = RoomEntity(input.name, input.capacity, input.description, entity.id)
+        return repository.saveAndFlush(updated).toRoom()
     }
 
     override fun delete(id: Long): Boolean {

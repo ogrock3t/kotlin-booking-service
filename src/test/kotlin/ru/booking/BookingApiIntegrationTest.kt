@@ -31,10 +31,11 @@ import java.util.concurrent.TimeUnit
 @Testcontainers
 @Tag("integration")
 @Import(FixedClockConfig::class)
-class BookingApiIntegrationTest {
-    @Autowired lateinit var mvc: MockMvc
-    @Autowired lateinit var json: ObjectMapper
-    @Autowired lateinit var jdbc: JdbcTemplate
+class BookingApiIntegrationTest @Autowired constructor(
+    private val mvc: MockMvc,
+    private val json: ObjectMapper,
+    private val jdbc: JdbcTemplate,
+) {
 
     companion object {
         @Container

@@ -11,14 +11,14 @@ import jakarta.persistence.Table
 @Table(name = "rooms")
 class RoomEntity(
     @Column(nullable = false, length = 100)
-    var name: String,
+    val name: String,
     @Column(nullable = false)
-    var capacity: Int,
+    val capacity: Int,
     @Column(nullable = false, length = 1000)
-    var description: String,
+    val description: String,
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long? = null,
+    val id: Long? = null,
 ) {
     fun toRoom() = Room(checkNotNull(id), name, capacity, description)
 }

@@ -12,18 +12,18 @@ import java.time.LocalDateTime
 @Table(name = "bookings")
 class BookingEntity(
     @Column(name = "room_id", nullable = false)
-    var roomId: Long,
+    val roomId: Long,
     @Column(name = "booked_by", nullable = false, length = 100)
-    var bookedBy: String,
+    val bookedBy: String,
     @Column(nullable = false, length = 200)
-    var title: String,
+    val title: String,
     @Column(name = "start_time", nullable = false)
-    var startTime: LocalDateTime,
+    val startTime: LocalDateTime,
     @Column(name = "end_time", nullable = false)
-    var endTime: LocalDateTime,
+    val endTime: LocalDateTime,
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long? = null,
+    val id: Long? = null,
 ) {
     fun toBooking() = Booking(checkNotNull(id), roomId, bookedBy, title, startTime, endTime)
 }
