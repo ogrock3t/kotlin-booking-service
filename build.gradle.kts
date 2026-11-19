@@ -1,59 +1,47 @@
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jlleitschuh.gradle.ktlint.KtlintExtension
+
 plugins {
-    kotlin("jvm") version "2.1.20"
-    kotlin("plugin.spring") version "2.1.20"
-    kotlin("plugin.jpa") version "2.1.20"
-    id("org.springframework.boot") version "3.5.16"
+    base
+    kotlin("jvm") version "2.1.20" apply false
+    kotlin("plugin.spring") version "2.1.20" apply false
+    kotlin("plugin.jpa") version "2.1.20" apply false
+    id("org.springframework.boot") version "3.5.16" apply false
+    id("com.google.protobuf") version "0.9.4" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
 
-group = "ru.booking"
-version = "0.0.1-SNAPSHOT"
-
-repositories {
-    mavenCentral()
-}
-
-allOpen {
-    annotation("jakarta.persistence.Entity")
-}
-
-kotlin {
-    jvmToolchain(21)
-    compilerOptions {
-        freeCompilerArgs.add("-Xjsr305=strict")
+allprojects {
+    repositories {
+        mavenCentral()
     }
 }
 
-dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:3.5.16"))
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.flywaydb:flyway-core")
-    implementation("org.flywaydb:flyway-database-postgresql")
-    runtimeOnly("org.postgresql:postgresql")
+subprojects {
+    group = "ru.booking"
+    version = "0.0.1-SNAPSHOT"
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    configure<KtlintExtension> {
+        filter {
+            exclude { it.file.invariantSeparatorsPath.contains("/build/generated/") }
+        }
+    }
 
-tasks.test {
-    useJUnitPlatform {
-        excludeTags("integration")
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        configure<KotlinJvmProjectExtension> {
+            jvmToolchain(21)
+            compilerOptions {
+                freeCompilerArgs.add("-Xjsr305=strict")
+            }
+        }
+    }
+
+    tasks.withType<Test>().configureEach {
+        useJUnitPlatform()
     }
 }
 
-tasks.register<Test>("integrationTest") {
-    description = "Runs API and PostgreSQL tests. Requires Docker."
-    group = "verification"
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    useJUnitPlatform {
-        includeTags("integration")
-    }
-    shouldRunAfter(tasks.test)
+tasks.check {
+    dependsOn(subprojects.map { "${it.path}:check" })
 }
-

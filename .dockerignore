@@ -1,7 +1,9 @@
 .git
-.gradle
-.idea
-build
-*.iml
+**/.gradle
+**/.kotlin
+**/.idea
+**/build
+**/*.iml
+**/.DS_Store
 .env
 docs

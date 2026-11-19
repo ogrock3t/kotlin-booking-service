@@ -1,34 +1,104 @@
-name: kotlin-booking-lab
+name: kotlin-booking-lab2
+
+x-room-db-user: &room-db-user ${ROOM_DB_USER:-rooms}
+x-room-db-password: &room-db-password ${ROOM_DB_PASSWORD:-rooms-local-password}
+x-booking-db-user: &booking-db-user ${BOOKING_DB_USER:-booking}
+x-booking-db-password: &booking-db-password ${BOOKING_DB_PASSWORD:-booking-local-password}
 
 services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${DB_NAME:-booking}
-      POSTGRES_USER: ${DB_USER:-booking}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Copy .env.example to .env first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres-local-password}
+      ROOM_DB_USER: *room-db-user
+      ROOM_DB_PASSWORD: *room-db-password
+      BOOKING_DB_USER: *booking-db-user
+      BOOKING_DB_PASSWORD: *booking-db-password
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - lab2_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
       interval: 3s
       timeout: 3s
       retries: 20
 
-  app:
-    build: .
+  kafka:
+    image: apache/kafka:3.9.2
     environment:
-      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-booking}
-      DB_USER: ${DB_USER:-booking}
-      DB_PASSWORD: ${DB_PASSWORD:?Copy .env.example to .env first}
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "127.0.0.1:${KAFKA_PORT:-9092}:29092"
+    volumes:
+      - lab2_kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  room-service:
+    build:
+      context: .
+      dockerfile: room-service/Dockerfile
+    environment:
+      ROOM_DB_URL: jdbc:postgresql://db:5432/rooms
+      ROOM_DB_USER: *room-db-user
+      ROOM_DB_PASSWORD: *room-db-password
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 127.0.0.1 9090"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 20s
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: booking-service/Dockerfile
+    environment:
+      BOOKING_DB_URL: jdbc:postgresql://db:5432/booking
+      BOOKING_DB_USER: *booking-db-user
+      BOOKING_DB_PASSWORD: *booking-db-password
+      ROOM_SERVICE_HOST: room-service
+      ROOM_RPC_TIMEOUT_MS: ${ROOM_RPC_TIMEOUT_MS:-1000}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       APP_TIME_ZONE: ${APP_TIME_ZONE:-Europe/Moscow}
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
     depends_on:
       db:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      room-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/rooms"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    stop_grace_period: 60s
 
 volumes:
-  postgres_data:
+  lab2_postgres_data:
+  lab2_kafka_data:
