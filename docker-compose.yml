@@ -80,6 +80,7 @@ services:
       BOOKING_DB_USER: *booking-db-user
       BOOKING_DB_PASSWORD: *booking-db-password
       ROOM_SERVICE_HOST: room-service
+      BOOKING_OUTBOX_R2DBC_URL: ${BOOKING_OUTBOX_R2DBC_URL:-}
       ROOM_RPC_TIMEOUT_MS: ${ROOM_RPC_TIMEOUT_MS:-1000}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       APP_TIME_ZONE: ${APP_TIME_ZONE:-Europe/Moscow}

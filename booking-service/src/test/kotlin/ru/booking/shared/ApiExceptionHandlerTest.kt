@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.dao.DataAccessResourceFailureException
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActions
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -24,10 +25,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.request
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import ru.booking.booking.BookingController
 import ru.booking.booking.BookingService
-import ru.booking.booking.history.BookingHistoryRepository
-import ru.booking.booking.room.RoomCatalogClient
 import ru.booking.booking.room.RoomController
-import ru.booking.booking.room.RoomDeletionService
+import ru.booking.booking.room.RoomService
 import ru.booking.booking.room.RoomServiceException
 
 @WebMvcTest(controllers = [RoomController::class, BookingController::class])
@@ -36,7 +35,7 @@ class ApiExceptionHandlerTest
     @Autowired
     constructor(
         private val mvc: MockMvc,
-        private val roomService: RoomCatalogClient,
+        private val roomService: RoomService,
         private val bookingService: BookingService,
     ) {
         @BeforeEach
@@ -54,9 +53,9 @@ class ApiExceptionHandlerTest
                 )
 
             cases.forEach { (error, expectedStatus) ->
-                doThrow(error).`when`(bookingService).findById(1)
+                runBlocking { doThrow(error).`when`(bookingService).findById(1) }
 
-                mvc.perform(get("/api/bookings/1"))
+                performAsyncGet("/api/bookings/1")
                     .andExpect(status().`is`(expectedStatus))
                     .andExpect(jsonPath("$.message").value(error.message))
 
@@ -92,18 +91,19 @@ class ApiExceptionHandlerTest
                 .andExpect(status().isBadRequest)
                 .andExpect(jsonPath("$.message").value(genericMessage))
 
-            doThrow(ConstraintViolationException(emptySet())).`when`(bookingService).findById(1)
-            mvc.perform(get("/api/bookings/1"))
+            runBlocking { doThrow(ConstraintViolationException(emptySet())).`when`(bookingService).findById(1) }
+            performAsyncGet("/api/bookings/1")
                 .andExpect(status().isBadRequest)
                 .andExpect(jsonPath("$.message").value(genericMessage))
         }
 
         @Test
         fun `database exception returns safe 500 response`() {
-            doThrow(DataAccessResourceFailureException("connection details"))
-                .`when`(bookingService).findById(1)
+            runBlocking {
+                doThrow(DataAccessResourceFailureException("connection details")).`when`(bookingService).findById(1)
+            }
 
-            mvc.perform(get("/api/bookings/1"))
+            performAsyncGet("/api/bookings/1")
                 .andExpect(status().isInternalServerError)
                 .andExpect(jsonPath("$.message").value("Database operation failed"))
         }
@@ -115,24 +115,22 @@ class ApiExceptionHandlerTest
                 val error = RoomServiceException(grpc.code, grpc.asException())
                 runBlocking { doThrow(error).`when`(roomService).findById(1) }
 
-                val result = mvc.perform(get("/api/rooms/1")).andExpect(request().asyncStarted()).andReturn()
-                mvc.perform(asyncDispatch(result)).andExpect(status().`is`(httpStatus))
+                performAsyncGet("/api/rooms/1").andExpect(status().`is`(httpStatus))
                 reset(roomService)
             }
+        }
+
+        private fun performAsyncGet(path: String): ResultActions {
+            val result = mvc.perform(get(path)).andExpect(request().asyncStarted()).andReturn()
+            return mvc.perform(asyncDispatch(result))
         }
 
         @TestConfiguration
         class MockServices {
             @Bean
-            fun roomService(): RoomCatalogClient = mock(RoomCatalogClient::class.java)
+            fun roomService(): RoomService = mock(RoomService::class.java)
 
             @Bean
             fun bookingService(): BookingService = mock(BookingService::class.java)
-
-            @Bean
-            fun roomDeletionService(): RoomDeletionService = mock(RoomDeletionService::class.java)
-
-            @Bean
-            fun bookingHistoryRepository(): BookingHistoryRepository = mock(BookingHistoryRepository::class.java)
         }
     }

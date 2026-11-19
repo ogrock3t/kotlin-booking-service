@@ -22,7 +22,8 @@ class RoomDeletionService(
     }
 
     suspend fun resumePending() {
-        for (roomId in bookingRooms.pendingDeletions()) {
+        val pendingRoomIds = withContext(Dispatchers.IO) { bookingRooms.pendingDeletions() }
+        for (roomId in pendingRoomIds) {
             try {
                 finishDeletion(roomId)
             } catch (error: CancellationException) {

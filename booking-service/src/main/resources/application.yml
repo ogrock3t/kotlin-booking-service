@@ -69,6 +69,8 @@ app:
     timeout-ms: ${ROOM_RPC_TIMEOUT_MS:1000}
   kafka:
     booking-events-topic: booking-events-v1
+  outbox:
+    r2dbc-url: ${BOOKING_OUTBOX_R2DBC_URL:}
 
 logging:
   level:

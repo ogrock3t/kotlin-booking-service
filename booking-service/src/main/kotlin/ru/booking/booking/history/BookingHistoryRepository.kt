@@ -3,7 +3,6 @@ package ru.booking.booking.history
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import ru.booking.booking.Booking
-import ru.booking.shared.ValidationException
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -36,8 +35,6 @@ class BookingHistoryRepository(
     }
 
     fun findPage(page: Int): BookingHistoryPage {
-        if (page < 0) throw ValidationException("Page must be zero or positive")
-
         val events =
             jdbc.sql(
                 """

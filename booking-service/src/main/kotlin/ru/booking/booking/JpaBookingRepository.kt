@@ -16,7 +16,7 @@ class JpaBookingRepository(private val repository: SpringDataBookingRepository) 
             roomId,
             end,
             start,
-        ).map { it.toBooking() }
+        ).map(BookingEntity::toBooking)
 
     override fun create(input: BookingInput): Booking =
         repository.saveAndFlush(

@@ -21,18 +21,17 @@ import java.net.URI
 @RequestMapping("/api/rooms")
 @Tag(name = "Помещения")
 class RoomController(
-    private val rooms: RoomCatalogClient,
-    private val deletions: RoomDeletionService,
+    private val service: RoomService,
 ) {
     @GetMapping
     @Operation(summary = "Получить список помещений")
-    suspend fun findAll(): List<Room> = rooms.findAll()
+    suspend fun findAll(): List<Room> = service.findAll()
 
     @GetMapping("/{id}")
     @Operation(summary = "Получить помещение по ID")
     suspend fun findById(
         @PathVariable id: Long,
-    ): Room = rooms.findById(id)
+    ): Room = service.findById(id)
 
     @PostMapping
     @Operation(summary = "Создать помещение")
@@ -40,7 +39,7 @@ class RoomController(
     suspend fun create(
         @Valid @RequestBody request: RoomRequest,
     ): ResponseEntity<Room> {
-        val room = rooms.create(request.toInput())
+        val room = service.create(request.toInput())
         return ResponseEntity.created(URI.create("/api/rooms/${room.id}")).body(room)
     }
 
@@ -49,7 +48,7 @@ class RoomController(
     suspend fun update(
         @PathVariable id: Long,
         @Valid @RequestBody request: RoomRequest,
-    ): Room = rooms.update(id, request.toInput())
+    ): Room = service.update(id, request.toInput())
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Удалить помещение без бронирований")
@@ -57,7 +56,7 @@ class RoomController(
     suspend fun delete(
         @PathVariable id: Long,
     ): ResponseEntity<Void> {
-        deletions.delete(id)
+        service.delete(id)
         return ResponseEntity.noContent().build()
     }
 }

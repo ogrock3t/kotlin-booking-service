@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
@@ -26,6 +27,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.transaction.support.TransactionTemplate
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
@@ -54,6 +56,7 @@ class BookingApiIntegrationTest
         private val json: ObjectMapper,
         private val jdbc: JdbcTemplate,
         private val transactions: BookingTransactions,
+        private val transactionTemplate: TransactionTemplate,
     ) {
         @BeforeEach
         fun cleanBookings() {
@@ -276,24 +279,45 @@ class BookingApiIntegrationTest
         }
 
         @Test
-        fun `booking remains durable while Kafka is unavailable and history catches up`() {
+        fun `rollback discards both the booking and its outbox event`() {
             val roomId = createRoom()
-            val docker = DockerClientFactory.instance().client()
-            val bookingId: Long
-            docker.pauseContainerCmd(kafka.containerId).exec()
-            try {
-                val response = createBooking(input(roomId))
-                assertEquals(HttpStatus.CREATED, response.statusCode)
-                bookingId = body(response)["id"].asLong()
-                assertEquals(1, bookingCount())
-                assertEquals(1, pendingEvents(bookingId))
-            } finally {
-                docker.unpauseContainerCmd(kafka.containerId).exec()
-            }
+            val bookingId =
+                transactionTemplate.execute { status ->
+                    val booking = transactions.create(input(roomId))
+                    assertEquals(1, pendingEvents(booking.id))
+                    status.setRollbackOnly()
+                    booking.id
+                }
 
-            awaitHistory(bookingId, "CONFIRMED")
+            assertEquals(0, bookingCount())
+            assertEquals(0, pendingEvents(requireNotNull(bookingId)))
+        }
+
+        @Test
+        fun `bookings remain durable while Kafka is unavailable and history catches up`() {
+            val roomId = createRoom()
+            val original = input(roomId)
+            val docker = DockerClientFactory.instance().client()
+            docker.pauseContainerCmd(kafka.containerId).exec()
+            val bookingIds =
+                try {
+                    (0L..2L).map { offset ->
+                        val input =
+                            original.copy(
+                                startTime = original.startTime.plusHours(offset),
+                                endTime = original.endTime.plusHours(offset),
+                            )
+                        val response = createBooking(input)
+                        assertEquals(HttpStatus.CREATED, response.statusCode)
+                        body(response)["id"].asLong().also { assertEquals(1, pendingEvents(it)) }
+                    }.also { assertEquals(it.size, bookingCount()) }
+                } finally {
+                    docker.unpauseContainerCmd(kafka.containerId).exec()
+                }
+
+            bookingIds.forEach { awaitHistory(it, "CONFIRMED") }
             await().atMost(Duration.ofSeconds(10)).untilAsserted {
-                assertEquals(0, pendingEvents(bookingId))
+                bookingIds.forEach { assertEquals(0, pendingEvents(it)) }
             }
         }
 
@@ -398,6 +422,7 @@ class BookingApiIntegrationTest
                             "--spring.datasource.url=${roomDb.jdbcUrl}",
                             "--spring.datasource.username=${roomDb.username}",
                             "--spring.datasource.password=${roomDb.password}",
+                            "--spring.autoconfigure.exclude=${R2dbcAutoConfiguration::class.java.name}",
                             "--app.grpc.port=0",
                         )
                 registry.add("spring.datasource.url", bookingDb::getJdbcUrl)

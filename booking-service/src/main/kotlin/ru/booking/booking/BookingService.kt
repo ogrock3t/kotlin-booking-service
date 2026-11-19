@@ -3,6 +3,8 @@ package ru.booking.booking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Service
+import ru.booking.booking.history.BookingHistoryPage
+import ru.booking.booking.history.BookingHistoryRepository
 import ru.booking.booking.room.RoomCatalogClient
 import ru.booking.shared.NotFoundException
 import ru.booking.shared.ValidationException
@@ -14,10 +16,17 @@ class BookingService(
     private val repository: BookingRepository,
     private val rooms: RoomCatalogClient,
     private val transactions: BookingTransactions,
+    private val history: BookingHistoryRepository,
 ) {
-    fun findById(id: Long): Booking =
-        repository.findById(id)
-            ?: throw NotFoundException("Booking $id not found")
+    suspend fun findById(id: Long): Booking =
+        withContext(Dispatchers.IO) {
+            repository.findById(id) ?: throw NotFoundException("Booking $id not found")
+        }
+
+    suspend fun findHistory(page: Int): BookingHistoryPage {
+        if (page < 0) throw ValidationException("Page must be zero or positive")
+        return withContext(Dispatchers.IO) { history.findPage(page) }
+    }
 
     suspend fun findByRoomAndDate(
         roomId: Long,
@@ -33,8 +42,8 @@ class BookingService(
         return withContext(Dispatchers.IO) { transactions.create(input) }
     }
 
-    fun cancel(id: Long) {
-        transactions.cancel(id)
+    suspend fun cancel(id: Long) {
+        withContext(Dispatchers.IO) { transactions.cancel(id) }
     }
 
     private fun validate(input: BookingInput) {

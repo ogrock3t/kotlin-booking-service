@@ -18,6 +18,8 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.springdoc.webmvc.ui)
     implementation(libs.spring.kafka)
+    implementation(libs.spring.r2dbc)
+    implementation(libs.r2dbc.pool)
     implementation(libs.coroutines.reactor)
     implementation(libs.coroutines.jdk8)
     implementation(libs.jackson.module.kotlin)
@@ -25,6 +27,7 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     runtimeOnly(libs.postgresql)
+    runtimeOnly(libs.r2dbc.postgresql)
 
     testImplementation(project(":room-service"))
     testImplementation(libs.spring.boot.starter.test)

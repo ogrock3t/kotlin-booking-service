@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.web.context.WebServerGracefulShutdownLifecycle
 import org.springframework.context.SmartLifecycle
 import org.springframework.stereotype.Component
-import ru.booking.booking.history.BookingOutbox
+import ru.booking.booking.history.BookingOutboxPublisher
 import ru.booking.booking.room.RoomDeletionService
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
@@ -22,7 +22,7 @@ import kotlin.time.Duration.Companion.seconds
 
 @Component
 class BookingBackgroundWorker(
-    private val outbox: BookingOutbox,
+    private val outbox: BookingOutboxPublisher,
     private val deletions: RoomDeletionService,
 ) : SmartLifecycle {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -33,10 +33,10 @@ class BookingBackgroundWorker(
 
     override fun start() {
         running = true
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         jobs =
             listOf(
-                scope.launch { work("publish booking events", 250.milliseconds, outbox::publishNext) },
+                scope.launch { work("publish booking events", 250.milliseconds, outbox::publishBatch) },
                 scope.launch {
                     work("finish room deletions", 2.seconds) {
                         deletions.resumePending()
@@ -67,7 +67,10 @@ class BookingBackgroundWorker(
     ) {
         while (running) {
             try {
-                if (!action()) delay(idleDelay)
+                val didWork = action()
+                if (!didWork) {
+                    delay(idleDelay)
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
