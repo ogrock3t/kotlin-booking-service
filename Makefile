@@ -1,49 +1,57 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help init up down logs status db build test test-integration check clean
+.PHONY: help run up down logs status db infra build test test-integration check format clean
 
 help:
 	@printf '%s\n' \
-		'make up                Build and start the app and PostgreSQL' \
-		'make down              Stop containers and keep database data' \
-		'make logs              Follow application logs' \
+		'make run               Build and start the backend, PostgreSQL and Kafka' \
+		'make up                Same as make run' \
+		'make down              Stop containers and keep database and Kafka data' \
+		'make logs              Follow both service logs' \
 		'make status            Show container status' \
 		'make db                Start PostgreSQL only' \
-		'make build             Build the executable JAR' \
-		'make test              Run unit tests' \
-		'make test-integration  Run integration tests (requires Docker)' \
-		'make check             Run all tests (requires Docker)' \
+		'make infra             Start PostgreSQL and Kafka' \
+		'make build             Build both executable JARs' \
+		'make test              Run unit and REST controller tests' \
+		'make test-integration  Run distributed integration tests (requires Docker)' \
+		'make check             Run KtLint and all tests (requires Docker)' \
+		'make format            Apply KtLint formatting' \
 		'make clean             Remove Gradle build output'
 
-init:
-	@test -f .env || cp .env.example .env
+run:
+	docker compose up --build -d --wait
 
-up: init
-	docker compose up --build -d
+up: run
 
 down:
 	docker compose down
 
 logs:
-	docker compose logs -f app
+	docker compose logs -f room-service booking-service
 
 status:
 	docker compose ps
 
-db: init
-	docker compose up -d db
+db:
+	docker compose up -d --wait db
+
+infra:
+	docker compose up -d --wait db kafka
 
 build:
-	./gradlew bootJar
+	./gradlew :room-service:bootJar :booking-service:bootJar
 
 test:
 	./gradlew test
 
 test-integration:
-	./gradlew integrationTest
+	./gradlew :booking-service:integrationTest
 
 check:
-	./gradlew test integrationTest
+	./gradlew check :booking-service:integrationTest
+
+format:
+	./gradlew ktlintFormat
 
 clean:
 	./gradlew clean

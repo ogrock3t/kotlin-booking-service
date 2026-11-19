@@ -1,0 +1,77 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
+  mvc:
+    async:
+      request-timeout: 12s
+  datasource:
+    url: ${BOOKING_DB_URL:jdbc:postgresql://localhost:5432/booking}
+    username: ${BOOKING_DB_USER:booking}
+    password: ${BOOKING_DB_PASSWORD}
+    hikari:
+      connection-timeout: 2000
+      data-source-properties:
+        socketTimeout: 5
+  transaction:
+    default-timeout: 5s
+  jdbc:
+    template:
+      query-timeout: 5s
+  flyway:
+    locations: classpath:db/booking
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        "[enable.idempotence]": true
+        "[max.block.ms]": 2000
+        "[request.timeout.ms]": 2500
+        "[delivery.timeout.ms]": 5000
+    consumer:
+      group-id: booking-history-v1
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        "[allow.auto.create.topics]": false
+    listener:
+      ack-mode: record
+    admin:
+      auto-create: false
+      operation-timeout: 4s
+      properties:
+        "[request.timeout.ms]": 2000
+        "[default.api.timeout.ms]": 5000
+
+springdoc:
+  paths-to-match: /api/**
+
+app:
+  time-zone: ${APP_TIME_ZONE:Europe/Moscow}
+  rooms:
+    host: ${ROOM_SERVICE_HOST:localhost}
+    port: ${ROOM_GRPC_PORT:9090}
+    timeout-ms: ${ROOM_RPC_TIMEOUT_MS:1000}
+  kafka:
+    booking-events-topic: booking-events-v1
+  outbox:
+    r2dbc-url: ${BOOKING_OUTBOX_R2DBC_URL:}
+
+logging:
+  level:
+    ru.booking: ${APP_LOG_LEVEL:INFO}

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package booking.rooms.v1;
+
+option java_multiple_files = true;
+option java_package = "ru.booking.contract.rooms.v1";
+
+import "google/protobuf/empty.proto";
+
+service RoomCatalog {
+  rpc ListRooms(google.protobuf.Empty) returns (ListRoomsResponse);
+  rpc GetRoom(RoomId) returns (RoomDetails);
+  rpc CreateRoom(RoomData) returns (RoomDetails);
+  rpc UpdateRoom(UpdateRoomRequest) returns (RoomDetails);
+  // A repeated deletion of the same ID succeeds.
+  rpc DeleteRoom(RoomId) returns (google.protobuf.Empty);
+}
+
+message RoomId {
+  int64 id = 1;
+}
+
+message RoomData {
+  string name = 1;
+  int32 capacity = 2;
+  string description = 3;
+}
+
+message RoomDetails {
+  int64 id = 1;
+  RoomData data = 2;
+}
+
+message ListRoomsResponse {
+  repeated RoomDetails rooms = 1;
+}
+
+message UpdateRoomRequest {
+  int64 id = 1;
+  RoomData data = 2;
+}

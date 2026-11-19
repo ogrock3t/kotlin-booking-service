@@ -1,0 +1,25 @@
+spring:
+  main:
+    web-application-type: none
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
+  datasource:
+    url: ${ROOM_DB_URL:jdbc:postgresql://localhost:5432/rooms}
+    username: ${ROOM_DB_USER:booking}
+    password: ${ROOM_DB_PASSWORD}
+    hikari:
+      connection-timeout: 2000
+      data-source-properties:
+        socketTimeout: 5
+  transaction:
+    default-timeout: 5s
+  flyway:
+    locations: classpath:db/room
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+app:
+  grpc:
+    port: ${ROOM_GRPC_PORT:9090}
