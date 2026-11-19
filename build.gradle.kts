@@ -3,12 +3,12 @@ import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 plugins {
     base
-    kotlin("jvm") version "2.1.20" apply false
-    kotlin("plugin.spring") version "2.1.20" apply false
-    kotlin("plugin.jpa") version "2.1.20" apply false
-    id("org.springframework.boot") version "3.5.16" apply false
-    id("com.google.protobuf") version "0.9.4" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.kotlin.spring) apply false
+    alias(libs.plugins.kotlin.jpa) apply false
+    alias(libs.plugins.spring.boot) apply false
+    alias(libs.plugins.protobuf) apply false
+    alias(libs.plugins.ktlint)
 }
 
 allprojects {
@@ -17,18 +17,21 @@ allprojects {
     }
 }
 
+val ktlintPluginId = libs.plugins.ktlint.get().pluginId
+val kotlinJvmPluginId = libs.plugins.kotlin.jvm.get().pluginId
+
 subprojects {
     group = "ru.booking"
     version = "0.0.1-SNAPSHOT"
 
-    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    apply(plugin = ktlintPluginId)
     configure<KtlintExtension> {
         filter {
             exclude { it.file.invariantSeparatorsPath.contains("/build/generated/") }
         }
     }
 
-    plugins.withId("org.jetbrains.kotlin.jvm") {
+    plugins.withId(kotlinJvmPluginId) {
         configure<KotlinJvmProjectExtension> {
             jvmToolchain(21)
             compilerOptions {

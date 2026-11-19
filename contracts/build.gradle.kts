@@ -1,32 +1,28 @@
 plugins {
     `java-library`
-    kotlin("jvm")
-    id("com.google.protobuf")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.protobuf)
 }
 
-val grpcVersion = "1.72.0"
-val grpcKotlinVersion = "1.4.3"
-val protobufVersion = "3.25.8"
-
 dependencies {
-    api(platform("io.grpc:grpc-bom:$grpcVersion"))
-    api("io.grpc:grpc-protobuf")
-    api("io.grpc:grpc-stub")
-    api("io.grpc:grpc-kotlin-stub:$grpcKotlinVersion")
-    api("com.google.protobuf:protobuf-java:$protobufVersion")
-    compileOnly("javax.annotation:javax.annotation-api:1.3.2")
+    api(platform(libs.grpc.bom))
+    api(libs.grpc.protobuf)
+    api(libs.grpc.stub)
+    api(libs.grpc.kotlin.stub)
+    api(libs.protobuf.java)
+    compileOnly(libs.javax.annotation)
 }
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:$protobufVersion"
+        artifact = libs.protobuf.compiler.get().toString()
     }
     plugins {
         create("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
+            artifact = libs.grpc.generator.java.get().toString()
         }
         create("grpckt") {
-            artifact = "io.grpc:protoc-gen-grpc-kotlin:$grpcKotlinVersion:jdk8@jar"
+            artifact = "${libs.grpc.generator.kotlin.get()}:jdk8@jar"
         }
     }
     generateProtoTasks {
